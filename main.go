@@ -55,7 +55,7 @@ func subscribe(channel chan Message) HTTPHandleFunc {
 		for {
 			select {
 			case msg := <-channel:
-				log.Printf("got %s from publisher", msg.message)
+				log.Printf("got %s %d from publisher", msg.message, msg.mt)
 				err = c.WriteMessage(msg.mt, msg.message)
 				if err != nil {
 					log.Println("write:", err)
