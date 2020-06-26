@@ -15,7 +15,7 @@ var upgrader = websocket.Upgrader{} // use default options
 
 // HTTPHandleFunc used as a return value from either publish or subscribe,
 // will contain a channel to be used to pass messages between publisher and subscriber
-type HTTPHandleFunc func(w http.ResponseWriter, r *http.Request)
+// type HTTPHandleFunc func(w http.ResponseWriter, r *http.Request)
 
 // Message to be passed between publish websocket and subscribe websocket
 type Message struct {
@@ -25,7 +25,7 @@ type Message struct {
 
 // making use of closure here so that publish and subscribe can share a channel,
 // but I can provide the correct type of function to http.HandleFunc
-func publish(channel chan Message) HTTPHandleFunc {
+func publish(channel chan Message) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		c, err := upgrader.Upgrade(w, r, nil)
@@ -49,7 +49,7 @@ func publish(channel chan Message) HTTPHandleFunc {
 	}
 }
 
-func subscribe(channel chan Message) HTTPHandleFunc {
+func subscribe(channel chan Message) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
