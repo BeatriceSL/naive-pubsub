@@ -41,3 +41,48 @@ func Test_subscribe(t *testing.T) {
 		}
 	}
 }
+
+// Integration test for pubsub using a single publisher and a single subscriber
+func Test_publishSubscribeIntegration(t *testing.T) {
+	c := make(chan Message)
+	Subscribe := subscribe(c)
+	Publish := publish(c)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/publish/", Publish)
+	mux.HandleFunc("/subscribe/", Subscribe)
+
+	s := httptest.NewServer(mux)
+	defer s.Close()
+
+	// all caps url because vscode whines if i don't
+	subURL := "ws" + strings.TrimPrefix(s.URL, "http") + "/subscribe/"
+	pubURL := "ws" + strings.TrimPrefix(s.URL, "http") + "/publish/"
+
+	// Connect to the server
+	subWS, _, err := websocket.DefaultDialer.Dial(subURL, nil)
+	defer subWS.Close()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	pubWS, _, err := websocket.DefaultDialer.Dial(pubURL, nil)
+	defer pubWS.Close()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	// Send message to server, read response and check to see if it's what we expect.
+	for i := 0; i < 10; i++ {
+
+		pubWS.WriteMessage(1, []byte("hello"))
+		_, p, err := subWS.ReadMessage()
+		if err != nil {
+			t.Fatalf("%v", err)
+		}
+		if string(p) != "hello" {
+			t.Fatalf("bad message")
+		}
+	}
+}
