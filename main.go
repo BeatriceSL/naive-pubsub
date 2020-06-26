@@ -22,6 +22,61 @@ type Message struct {
 	message []byte
 }
 
+type Publisher struct {
+	connection *websocket.Conn
+	broadcast  chan Message   // send to a broadcast to be picked up by a reciever
+	station    *PubSubStation // used to send registration and unregistration
+}
+
+type Subscriber struct {
+	connection *websocket.Conn
+	reciever   chan Message   //recieves message from broadcaster
+	station    *PubSubStation // used to send registration and unregistration
+}
+
+type PubSubStation struct {
+	broadcast chan Message
+
+	publishers          map[Publisher]bool
+	registerPublisher   chan Publisher
+	unregisterPublisher chan Publisher
+
+	subscribers          map[Subscriber]bool
+	registerSubscriber   chan Subscriber
+	unregisterSubscriber chan Subscriber
+}
+
+func (PSS *PubSubStation) run() {
+	for {
+		select {
+		case subscriber := <-PSS.registerSubscriber:
+			PSS.subscribers[subscriber] = true // true is kind of unimportant, just want a subscriber
+		case subscriber := <-PSS.unregisterSubscriber:
+			if _, ok := PSS.subscribers[subscriber]; ok {
+				delete(PSS.subscribers, subscriber)
+			}
+
+		case publisher := <-PSS.registerPublisher:
+			PSS.publishers[publisher] = true // true is kind of unimportant, just want a publisher
+		case publisher := <-PSS.unregisterPublisher:
+			if _, ok := PSS.publishers[publisher]; ok {
+				delete(PSS.publishers, publisher)
+
+			}
+		case message := <-PSS.broadcast:
+			for subscriber := range PSS.subscribers {
+				select {
+				case subscriber.reciever <- message:
+				default:
+					close(subscriber.reciever)
+					delete(PSS.subscribers, subscriber) //?
+				}
+
+			}
+		}
+	}
+}
+
 // making use of closure here so that publish and subscribe can share a channel,
 // but I can provide the correct type of function to http.HandleFunc
 func publish(channel chan Message) http.HandlerFunc {
