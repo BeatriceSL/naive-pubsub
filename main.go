@@ -22,23 +22,22 @@ type Message struct {
 	message []byte
 }
 
+// Publisher is a websocket connection that broadcasts messages to it's station
 type Publisher struct {
 	connection *websocket.Conn
 	station    *PubSubStation // used to send registration and unregistration
 }
 
+// Subscriber is a websocket connection that recieves messages from its station
 type Subscriber struct {
 	connection *websocket.Conn
 	reciever   chan Message   //recieves message from broadcaster
 	station    *PubSubStation // used to send registration and unregistration
 }
 
+// PubSubStation provides a store to register and unregister subscribers to a broadcast signal
 type PubSubStation struct {
 	broadcast chan Message
-
-	publishers          map[*Publisher]bool
-	registerPublisher   chan *Publisher
-	unregisterPublisher chan *Publisher
 
 	subscribers          map[*Subscriber]bool
 	registerSubscriber   chan *Subscriber
@@ -52,21 +51,18 @@ func (PSS *PubSubStation) run() {
 			PSS.subscribers[subscriber] = true // true is kind of unimportant, just want a subscriber
 		case subscriber := <-PSS.unregisterSubscriber:
 			if _, ok := PSS.subscribers[subscriber]; ok {
+				close(subscriber.reciever)
 				delete(PSS.subscribers, subscriber)
 			}
 
-		case publisher := <-PSS.registerPublisher:
-			PSS.publishers[publisher] = true // true is kind of unimportant, just want a publisher
-		case publisher := <-PSS.unregisterPublisher:
-			if _, ok := PSS.publishers[publisher]; ok {
-				delete(PSS.publishers, publisher)
-
-			}
 		case message := <-PSS.broadcast:
 			for subscriber := range PSS.subscribers {
 				// launch a go routine for every subscriber, instead of of just looping through
 				select {
 				case subscriber.reciever <- message:
+				default:
+					close(subscriber.reciever)
+					delete(PSS.subscribers, subscriber)
 				}
 
 			}
@@ -77,10 +73,6 @@ func (PSS *PubSubStation) run() {
 func stationFactory() *PubSubStation {
 	return &PubSubStation{
 		broadcast: make(chan Message),
-
-		publishers:          make(map[*Publisher]bool),
-		registerPublisher:   make(chan *Publisher),
-		unregisterPublisher: make(chan *Publisher),
 
 		subscribers:          make(map[*Subscriber]bool),
 		registerSubscriber:   make(chan *Subscriber),
@@ -103,14 +95,10 @@ func publish(station *PubSubStation) http.HandlerFunc {
 			connection: c,
 			station:    station,
 		}
-		publisher.station.registerPublisher <- publisher
 
 		// TODO prob should be a named function but for protoyping leaving here for now
 		go func() {
-			defer func() {
-				publisher.station.unregisterPublisher <- publisher
-				publisher.connection.Close()
-			}()
+			defer publisher.connection.Close()
 			for {
 				mt, message, err := publisher.connection.ReadMessage()
 				if err != nil {
