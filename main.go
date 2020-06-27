@@ -172,6 +172,7 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 	pubSubStation := stationFactory()
+	go pubSubStation.run()
 	Publish := publish(pubSubStation)
 	Subscribe := subscribe(pubSubStation)
 	http.HandleFunc("/publish", Publish)

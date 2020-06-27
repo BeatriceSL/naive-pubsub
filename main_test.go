@@ -14,6 +14,7 @@ func Test_publishSubscribeIntegration(t *testing.T) {
 	pubSubStation := stationFactory()
 	Publish := publish(pubSubStation)
 	Subscribe := subscribe(pubSubStation)
+	go pubSubStation.run()
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/publish/", Publish)
@@ -58,6 +59,7 @@ func Test_publishSubscribeMultipleSubscribersIntegration(t *testing.T) {
 	pubSubStation := stationFactory()
 	Publish := publish(pubSubStation)
 	Subscribe := subscribe(pubSubStation)
+	go pubSubStation.run()
 
 	mux := http.NewServeMux()
 
