@@ -383,6 +383,7 @@ func Test_disconnectSubscriberDoesntBlock(t *testing.T) {
 
 	subWS2.Close()
 	time.Sleep(11 * time.Second) // has to be a better way to do this
+	// this creates a rece condition, I'm not really sure how to perform this test without one
 	regSubs := len(pubSubStation.subscribers)
 	if regSubs != 2 {
 		t.Fatalf("subscriber was not unregisterd")

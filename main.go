@@ -24,10 +24,6 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 )
 
-// HTTPHandleFunc used as a return value from either publish or subscribe,
-// will contain a channel to be used to pass messages between publisher and subscriber
-// type HTTPHandleFunc func(w http.ResponseWriter, r *http.Request)
-
 // Message to be passed between publish websocket and subscribe websocket
 type Message struct {
 	mt      int
