@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -381,6 +382,11 @@ func Test_disconnectSubscriberDoesntBlock(t *testing.T) {
 	}
 
 	subWS2.Close()
+	time.Sleep(11 * time.Second) // has to be a better way to do this
+	regSubs := len(pubSubStation.subscribers)
+	if regSubs != 2 {
+		t.Fatalf("subscriber was not unregisterd")
+	}
 
 	pubWS1.WriteMessage(1, []byte("hello"))
 	_, p0, err = subWS0.ReadMessage()

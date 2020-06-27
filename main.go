@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -11,6 +12,17 @@ import (
 var addr = flag.String("addr", "localhost:8080", "http service address")
 
 var upgrader = websocket.Upgrader{} // use default options
+
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 1 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 6 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+)
 
 // HTTPHandleFunc used as a return value from either publish or subscribe,
 // will contain a channel to be used to pass messages between publisher and subscriber
@@ -138,6 +150,8 @@ func subscribe(station *PubSubStation) http.HandlerFunc {
 				subscriber.connection.Close()
 
 			}()
+			ticker := time.NewTicker(pingPeriod)
+
 			for {
 				select {
 				case message, ok := <-subscriber.reciever:
@@ -146,8 +160,16 @@ func subscribe(station *PubSubStation) http.HandlerFunc {
 						subscriber.connection.WriteMessage(websocket.CloseMessage, []byte{})
 						return
 					}
-					subscriber.connection.WriteMessage(message.mt, message.message)
+					err := subscriber.connection.WriteMessage(message.mt, message.message)
+					if err != nil {
+						return
+					}
 
+				case <-ticker.C: // periodically check if the connection exists
+					subscriber.connection.SetWriteDeadline(time.Now().Add(writeWait))
+					if err := subscriber.connection.WriteMessage(websocket.PingMessage, nil); err != nil {
+						return
+					}
 				}
 			}
 		}()
